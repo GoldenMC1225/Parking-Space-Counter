@@ -1,0 +1,251 @@
+================================================================================
+                    GIẢI THÍCH LOGIC CODE VÀ CÁCH XÁC ĐỊNH CHỖ ĐỖ XE
+================================================================================
+
+I. TỔNG QUAN VỀ CHƯƠNG TRÌNH
+--------------------------------------------------------------------------------
+Chương trình này sử dụng xử lý hình ảnh để tự động phát hiện và đếm số chỗ 
+đỗ xe còn trống trong một video bãi đỗ xe. Hệ thống hoạt động bằng cách phân 
+tích từng khung hình của video và xác định trạng thái (trống/có xe) của từng 
+chỗ đỗ dựa trên số lượng pixel trắng trong vùng đó.
+
+
+II. CÁC THÀNH PHẦN CHÍNH
+--------------------------------------------------------------------------------
+
+1. THÔNG SỐ CẤU HÌNH:
+   - parking_slots: Danh sách tọa độ (x, y) của 69 chỗ đỗ xe trong video
+   - rect_width = 100, rect_height = 33: Kích thước hình chữ nhật đánh dấu 
+     mỗi chỗ đỗ (100x33 pixel)
+   - threshold = 30: Ngưỡng quyết định - nếu số pixel trắng < 30 → chỗ trống
+   - Video đầu vào: "./video/CarPark.mp4"
+
+
+2. HÀM convert_grayscale(frame):
+   Mục đích: Xử lý frame để làm nổi bật các vật thể (xe) trong hình ảnh.
+   
+   Các bước xử lý:
+   a) Chuyển đổi màu sang thang độ xám:
+      - Chuyển từ BGR (Blue-Green-Red) sang Grayscale
+      - Giảm độ phức tạp của hình ảnh từ 3 kênh màu xuống 1 kênh
+   
+   b) Áp dụng Threshold (ngưỡng):
+      - Ngưỡng = 20: Pixel có giá trị >= 20 → trắng (255)
+      - Pixel có giá trị < 30 → đen (0)
+      - Kết quả: Hình ảnh nhị phân chỉ có 2 màu (đen/trắng)
+   
+   c) Tìm Contours (đường viền):
+      - Tìm tất cả các đường viền của vật thể trong ảnh nhị phân
+      - RETR_EXTERNAL: Chỉ lấy đường viền ngoài cùng
+      - CHAIN_APPROX_SIMPLE: Nén đường viền để tiết kiệm bộ nhớ
+   
+   d) Vẽ lại đường viền:
+      - Tạo canvas đen mới
+      - Vẽ tất cả đường viền bằng màu trắng
+      - Kết quả: Hình ảnh chỉ có đường viền trắng trên nền đen
+   
+   → Mục đích: Khi có xe trong chỗ đỗ, sẽ có nhiều đường viền trắng. 
+      Khi chỗ đỗ trống, chỉ có ít hoặc không có đường viền.
+
+
+3. HÀM mark_slots(frame, grayscale_frame):
+   Mục đích: Phân tích từng chỗ đỗ và đánh dấu trạng thái (trống/có xe).
+   
+   Logic xử lý từng chỗ đỗ:
+   
+   a) Xác định vùng kiểm tra:
+      - Tọa độ gốc: (x, y) từ parking_slots
+      - Vùng kiểm tra: 
+        * x1 = x + 10 (lùi vào 10px từ bên trái)
+        * x2 = x + rect_width - 11 (lùi vào 11px từ bên phải)
+        * y1 = y + 4 (lùi vào 4px từ trên)
+        * y2 = y + rect_height (đến cuối chiều cao)
+      → Tạo vùng kiểm tra nhỏ hơn một chút so với hình chữ nhật hiển thị
+         để tránh nhầm lẫn với đường kẻ vạch sơn
+   
+   b) Cắt vùng kiểm tra:
+      - Lấy phần hình ảnh từ grayscale_frame trong vùng [y1:y2, x1:x2]
+      - Chuyển sang grayscale (nếu chưa phải)
+   
+   c) Đếm pixel trắng:
+      - cv2.countNonZero(): Đếm số pixel có giá trị khác 0 (pixel trắng)
+      - count = số lượng pixel trắng trong vùng kiểm tra
+   
+   d) Quyết định trạng thái:
+      Nếu count < threshold (30):
+         → CHỖ TRỐNG
+         - Màu: Xanh lá (0, 255, 0)
+         - Độ dày: 5 pixel (để dễ nhìn)
+         - Tăng biến đếm freeslots
+      
+      Nếu count >= threshold (30):
+         → CÓ XE
+         - Màu: Đỏ (0, 0, 255)
+         - Độ dày: 2 pixel
+   
+   e) Vẽ hình chữ nhật đánh dấu:
+      - Vẽ hình chữ nhật với màu và độ dày tương ứng
+   
+   f) Hiển thị số chỗ trống:
+      - Cập nhật tối đa mỗi 0.1 giây để tránh nhấp nháy
+      - Hiển thị "Free Slots: X" ở góc trên bên trái
+
+
+4. VÒNG LẶP CHÍNH:
+   - Đọc từng frame từ video
+   - Xử lý frame qua convert_grayscale()
+   - Đánh dấu các chỗ đỗ qua mark_slots()
+   - Hiển thị kết quả
+   - Thoát khi nhấn phím 'q'
+
+
+III. LOGIC XÁC ĐỊNH CHỖ ĐỖ XE
+--------------------------------------------------------------------------------
+
+NGUYÊN LÝ HOẠT ĐỘNG:
+
+1. TIỀN XỬ LÝ HÌNH ẢNH:
+   Frame gốc → Grayscale → Binary (đen/trắng) → Tìm Contours → 
+   Vẽ lại chỉ có đường viền trắng
+   
+   → Mục đích: Làm nổi bật các vật thể (xe) trong frame. Xe có nhiều 
+      đường viền, nền trống có ít hoặc không có đường viền.
+
+2. PHƯƠNG PHÁP PHÁT HIỆN:
+   - Không sử dụng AI/Deep Learning
+   - Sử dụng phương pháp đếm pixel đơn giản
+   - Dựa trên giả định: Chỗ có xe → nhiều pixel trắng (đường viền)
+                        Chỗ trống → ít pixel trắng
+
+3. QUY TRÌNH XÁC ĐỊNH TỪNG CHỖ ĐỖ:
+   
+   Bước 1: Cắt vùng kiểm tra
+           ┌─────────────────┐
+           │  [Vùng kiểm tra] │  ← Vùng nhỏ hơn hình chữ nhật hiển thị
+           └─────────────────┘
+   
+   Bước 2: Đếm pixel trắng trong vùng
+           - Sử dụng cv2.countNonZero()
+           - Đếm tất cả pixel có giá trị > 0
+   
+   Bước 3: So sánh với ngưỡng
+           if count < 30:
+               → Chỗ trống (màu xanh)
+           else:
+               → Có xe (màu đỏ)
+   
+   Bước 4: Vẽ hình chữ nhật với màu tương ứng
+
+4. TẠI SAO PHƯƠNG PHÁP NÀY HOẠT ĐỘNG:
+   
+   a) Khi chỗ đỗ TRỐNG:
+      - Chỉ có nền bê tông/đường (màu xám đậm)
+      - Sau khi threshold → chủ yếu pixel đen
+      - Sau khi tìm contours → rất ít hoặc không có đường viền
+      - Kết quả: count < 30 → XANH LÁ
+   
+   b) Khi chỗ đỗ CÓ XE:
+      - Có xe với nhiều chi tiết (cửa, kính, bánh xe...)
+      - Sau khi threshold → nhiều pixel trắng
+      - Sau khi tìm contours → nhiều đường viền (viền xe, cửa, bánh...)
+      - Kết quả: count >= 30 → ĐỎ
+
+5. ĐIỂM MẠNH:
+   - Đơn giản, không cần training model
+   - Xử lý nhanh, real-time
+   - Không cần GPU
+   
+6. ĐIỂM YẾU:
+   - Phụ thuộc vào điều kiện ánh sáng
+   - Có thể nhầm lẫn với bóng, vết bẩn
+   - Cần điều chỉnh threshold cho từng môi trường
+   - Cần biết trước vị trí các chỗ đỗ (không tự động phát hiện)
+
+
+IV. CÁC THAM SỐ QUAN TRỌNG VÀ CÁCH ĐIỀU CHỈNH
+--------------------------------------------------------------------------------
+
+1. threshold = 30:
+   - Tăng threshold → khó phát hiện chỗ trống hơn (nghiêm ngặt hơn)
+   - Giảm threshold → dễ nhầm chỗ có xe thành trống
+   - Nên điều chỉnh dựa trên thử nghiệm thực tế
+
+2. rect_width = 100, rect_height = 33:
+   - Kích thước hình chữ nhật đánh dấu
+   - Phải phù hợp với kích thước thực tế của chỗ đỗ trong video
+
+3. Vùng kiểm tra (x1, y1, x2, y2):
+   - Lùi vào 10px từ trái/phải, 4px từ trên
+   - Tránh nhầm lẫn với vạch sơn đường
+   - Có thể điều chỉnh để tối ưu độ chính xác
+
+4. Ngưỡng threshold trong convert_grayscale (150):
+   - Quyết định pixel nào trở thành trắng/đen
+   - Tăng → ít pixel trắng hơn (nghiêm ngặt hơn)
+   - Giảm → nhiều pixel trắng hơn (nhạy cảm hơn)
+
+
+V. LUỒNG XỬ LÝ TỔNG THỂ
+--------------------------------------------------------------------------------
+
+VIDEO INPUT
+    ↓
+[Đọc Frame]
+    ↓
+[convert_grayscale()]
+    ├─→ Grayscale
+    ├─→ Binary (threshold=150)
+    ├─→ Find Contours
+    └─→ Draw Contours (trắng trên nền đen)
+    ↓
+[mark_slots()]
+    ├─→ Với mỗi chỗ đỗ:
+    │   ├─→ Cắt vùng kiểm tra
+    │   ├─→ Đếm pixel trắng
+    │   ├─→ So sánh với threshold=30
+    │   └─→ Vẽ hình chữ nhật (xanh/đỏ)
+    └─→ Hiển thị "Free Slots: X"
+    ↓
+[Hiển thị Frame]
+    ↓
+[Lặp lại với frame tiếp theo]
+
+
+VI. VÍ DỤ MINH HỌA
+--------------------------------------------------------------------------------
+
+Giả sử chỗ đỗ tại tọa độ (402, 239):
+
+1. Vùng kiểm tra:
+   x1 = 402 + 10 = 412
+   x2 = 402 + 100 - 11 = 491
+   y1 = 239 + 4 = 243
+   y2 = 239 + 33 = 272
+   → Vùng: [243:272, 412:491]
+
+2. Cắt vùng từ grayscale_frame (chỉ có đường viền trắng)
+
+3. Đếm pixel trắng:
+   - Nếu chỗ trống: count = 5 pixel → < 30 → XANH LÁ
+   - Nếu có xe: count = 150 pixel → >= 30 → ĐỎ
+
+4. Vẽ hình chữ nhật:
+   - Từ (412, 243) đến (491, 272)
+   - Màu xanh nếu trống, đỏ nếu có xe
+
+
+VII. KẾT LUẬN
+--------------------------------------------------------------------------------
+
+Chương trình sử dụng phương pháp xử lý hình ảnh cổ điển (không dùng AI) 
+để phát hiện chỗ đỗ xe dựa trên:
+- Phân tích đường viền (contours)
+- Đếm pixel trắng trong vùng xác định
+- So sánh với ngưỡng threshold
+
+Phương pháp này đơn giản, nhanh nhưng cần điều chỉnh tham số phù hợp với 
+từng môi trường cụ thể (ánh sáng, góc quay, chất lượng video).
+
+================================================================================
+Ngày tạo: 2024
+================================================================================

@@ -1,0 +1,5 @@
+venv
+__pycache__
+__debug_yolo.py
+.pytest_cache
+.kiro
