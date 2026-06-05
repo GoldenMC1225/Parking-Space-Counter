@@ -11,5 +11,9 @@ fastapi==0.136.3
 uvicorn==0.48.0
 python-multipart==0.0.29
 
+# Data / visualisation (used in evaluation and notebook)
+pandas>=2.0.0
+matplotlib>=3.7.0
+
 # Testing
 pytest==9.0.3

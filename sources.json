@@ -29,6 +29,16 @@
         500,
         500
       ]
+    },
+    {
+      "id": "test3",
+      "name": "Test 3 - Testing",
+      "uri": ".\\video\\abvv.mp4",
+      "slots_file": "./slots/test3.json",
+      "entry_point": [
+        80,
+        695
+      ]
     }
   ]
 }

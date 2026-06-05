@@ -130,7 +130,7 @@ pipeline_states: Dict[str, PipelineState] = {}
 # Default YOLO parameters (used by the inline YOLO loop)
 # ─────────────────────────────────────────────
 
-_DEFAULT_MODEL_PATH: str = "model\\yolo26s.pt"
+_DEFAULT_MODEL_PATH: str = "yolov8n.pt"
 _DEFAULT_SKIP: int = 5
 _DEFAULT_CONF: float = 0.25
 
